@@ -78,6 +78,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .addform { display: none; gap: 8px; margin-top: 8px; }
 .addform.open { display: flex; }
 .addform input { flex: 1; min-width: 0; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+.cell .m { margin-top: 6px; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.cell .m input { width: 58px; min-height: 30px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+.total { font: 600 16px/1.3 var(--body); }
+.total b { font: 700 22px/1 var(--display); }
+.total .note { font-weight: 400; margin-top: 2px; }
 .out { margin: 10px 0 0; font: 700 18px/1.25 var(--display); min-height: 1.25em; }
 .dishbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
 .todo ul { margin: 0; padding-left: 18px; color: var(--muted); }
@@ -99,6 +104,7 @@ html{-webkit-text-size-adjust:100%}body{margin:0}
 
   <section class="plate" aria-label="Plate">
     <div class="cells" id="cells"></div>
+    <div class="total" id="total" aria-live="polite"></div>
     <div class="actions">
       <button class="btn grow" id="shuffle" type="button">Shuffle plate</button>
       <button class="btn ghost" id="clear" type="button">Clear</button>
@@ -206,11 +212,48 @@ html{-webkit-text-size-adjust:100%}body{margin:0}
     ]}
   ];
 
+  // Protein, g per 100 g, cooked weight (approximate, typical values).
+  var PROT = {
+    'Chicken': 31, 'Salmon': 22, 'White fish': 23, 'Pulled chicken': 28, 'Steak': 27, 'Sardines': 25,
+    'Basmati rice': 3.5, 'Potatoes': 2, 'Mashed potatoes': 2, 'Gnocchi': 4, 'Pasta': 5.8,
+    'Pasta: linguine': 5.8, 'Pasta: caserecce': 5.8, 'Pasta: orecchiette': 5.8,
+    'Black lentils': 9, 'Soba': 5, 'Brothy rice': 2, 'Risotto': 3,
+    'Eggplant': 1, 'Zucchini fritters': 5, 'Green salad + mozzarella': 5, 'Chopped tomatoes with herbs': 1,
+    'Steamed broccoli': 2.8, 'Zucchini in sour cream': 1.5, 'Carrot with garlic + sour cream': 1.5,
+    'Beetroot with garlic': 1.7, 'Cucumber + radish': 0.7, 'Arugula': 2.6, 'Kimchi': 1.1,
+    'Cream sauce': 2.4, 'Cream + mushrooms': 2.5, 'Pesto': 5, 'Cumin': 18, 'Lemon (white fish)': 1,
+    'Guacamole': 2, 'Fresh herbs': 3, 'Tomatoes in a parcel': 0.9
+  };
+  // Default portion in grams per row, and per-item overrides (spices and sauces are small).
+  var PORTION = { protein: 150, base: 150, veg: 100, sauce: 30 };
+  var PORT_OVERRIDE = { 'Cumin': 3, 'Lemon (white fish)': 10, 'Fresh herbs': 5, 'Guacamole': 50, 'Tomatoes in a parcel': 80, 'Cream sauce': 50, 'Cream + mushrooms': 60, 'Pesto': 30 };
+  function gramsFor(k) {
+    var n = plate[k], v = store.grams[n];
+    if (typeof v === 'number') return v;
+    return PORT_OVERRIDE[n] !== undefined ? PORT_OVERRIDE[n] : PORTION[k];
+  }
+  function updateProtein() {
+    var total = 0, unknown = false, any = false;
+    PLATE_KEYS.forEach(function (k) {
+      var c = cellEls[k], m = c.querySelector('.m'), inp = m.querySelector('.g'), pe = m.querySelector('.p'), n = plate[k];
+      if (!n) { m.style.display = 'none'; return; }
+      any = true; m.style.display = '';
+      var g = gramsFor(k);
+      if (document.activeElement !== inp) inp.value = g;
+      var per = PROT[n];
+      if (per === undefined) { unknown = true; pe.textContent = 'protein: ?'; }
+      else { var pr = per * g / 100; total += pr; pe.textContent = '≈ ' + Math.round(pr) + ' g protein'; }
+    });
+    var t = document.getElementById('total');
+    if (!any) { t.textContent = ''; return; }
+    t.innerHTML = 'Protein ≈ <b>' + Math.round(total) + ' g</b>' + (unknown ? ' <span class="note">(items without data not counted)</span>' : '') + '<div class="note">Approximate, cooked weights. Change the grams to match your plate.</div>';
+  }
+
   var PLATE = [['protein', 'Protein', 'Protein'], ['base', 'Base', 'Base'], ['veg', 'Veg', 'Veg'], ['sauce', 'Twist', 'Twist <small>(flavor or topping)</small>']];
   var PLATE_KEYS = PLATE.map(function (p) { return p[0]; });
   var KEY = 'myfood.v1';
 
-  var store = { counts: {}, extras: {}, saved: [] };
+  var store = { counts: {}, extras: {}, saved: [], grams: {} };
   try {
     var raw = localStorage.getItem(KEY);
     if (raw) {
@@ -218,6 +261,7 @@ html{-webkit-text-size-adjust:100%}body{margin:0}
       store.counts = parsed.counts || {};
       store.extras = parsed.extras || {};
       store.saved = parsed.saved || [];
+      store.grams = parsed.grams || {};
     }
   } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
@@ -331,6 +375,12 @@ html{-webkit-text-size-adjust:100%}body{margin:0}
     c.className = 'cell';
     c.innerHTML = '<div class="k"></div><div class="v empty">—</div>';
     c.querySelector('.k').textContent = p[1];
+    c.dataset.k = p[0];
+    var m = document.createElement('div');
+    m.className = 'm';
+    m.style.display = 'none';
+    m.innerHTML = '<input class="g" type="number" inputmode="numeric" min="0" max="999" aria-label="Grams of ' + p[1] + '"> g <span class="p"></span>';
+    c.appendChild(m);
     cellsHost.appendChild(c);
     cellEls[p[0]] = c;
   });
@@ -349,6 +399,7 @@ html{-webkit-text-size-adjust:100%}body{margin:0}
       el.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
     document.getElementById('dish-out').textContent = picked.dish || '';
+    updateProtein();
   }
 
   function applyDish(name) {
@@ -466,6 +517,17 @@ html{-webkit-text-size-adjust:100%}body{margin:0}
     input.value = '';
     form.classList.remove('open');
     paint();
+  });
+
+  cellsHost.addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t.classList || !t.classList.contains('g')) return;
+    var k = t.closest('.cell').dataset.k;
+    if (!plate[k]) return;
+    var n = parseFloat(t.value);
+    if (isNaN(n) || n < 0) delete store.grams[plate[k]]; else store.grams[plate[k]] = n;
+    save();
+    updateProtein();
   });
 
   document.getElementById('shuffle').addEventListener('click', shuffle);
