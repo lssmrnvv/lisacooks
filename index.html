@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Food</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My Food">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  /* Layout: one phone column. A plate card on top, then rows of tappable chips. */
+  --bg: #f2f5f0;
+  --surface: #ffffff;
+  --ink: #1c2420;
+  --muted: #5b685f;
+  --line: #d6dfd5;
+  --accent: #2c6a4b;
+  --accent-ink: #ffffff;
+  --tint: #e3ede5;
+  --display: 'Bricolage Grotesque', 'Avenir Next', 'Segoe UI', sans-serif;
+  --body: 'Instrument Sans', 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111715; --surface: #19211e; --ink: #e6eee8; --muted: #9bab9f;
+    --line: #2b3832; --accent: #7bd4a0; --accent-ink: #0b1a12; --tint: #1f2e26;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111715; --surface: #19211e; --ink: #e6eee8; --muted: #9bab9f;
+  --line: #2b3832; --accent: #7bd4a0; --accent-ink: #0b1a12; --tint: #1f2e26;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 15px/1.45 var(--body);
+  padding-block: 20px 44px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 24px; }
+h1 { font: 700 28px/1.1 var(--display); margin: 0; text-wrap: balance; }
+.sub { margin: 4px 0 0; color: var(--muted); }
+h2 { font: 600 12px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.hint { color: var(--muted); font-size: 13px; margin: -4px 0 10px; }
+
+.plate { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 14px; }
+.cells { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cell { min-width: 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); border-bottom: 3px solid transparent; }
+.cell.locked { border-bottom-color: var(--accent); }
+.cell .k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.cell .v { font: 700 18px/1.2 var(--display); margin-top: 3px; overflow-wrap: anywhere; }
+.cell .v.empty { color: var(--muted); font-weight: 500; }
+.actions { display: flex; gap: 10px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.btn { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.grow { flex: 1; }
+.btn:focus-visible, .chip:focus-visible, .add:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.row, .group { margin-bottom: 14px; }
+.row:last-child, .group:last-child { margin-bottom: 0; }
+.lbl { font-weight: 600; margin-bottom: 6px; }
+.lbl small { font-weight: 400; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { min-height: 38px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); text-align: left; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.chip .x { margin-left: 8px; opacity: .6; padding: 0 2px; }
+.add { min-height: 38px; padding: 6px 12px; border-radius: 10px; border: 1px dashed var(--line); background: transparent; color: var(--muted); }
+.addform { display: none; gap: 8px; margin-top: 8px; }
+.addform.open { display: flex; }
+.addform input { flex: 1; min-width: 0; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+.out { margin: 10px 0 0; font: 700 18px/1.25 var(--display); min-height: 1.25em; }
+.dishbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+.todo ul { margin: 0; padding-left: 18px; color: var(--muted); }
+.todo li { margin: 4px 0; }
+.note { color: var(--muted); font-size: 12px; }
+@media (prefers-reduced-motion: no-preference) {
+  .chip, .cell { transition: background-color .12s, border-color .12s; }
+}
+html{-webkit-text-size-adjust:100%}body{margin:0}
+</style>
+
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>My food</h1>
+    <p class="sub">Build a plate, or pick a dish.</p>
+  </header>
+
+  <section class="plate" aria-label="Plate">
+    <div class="cells" id="cells"></div>
+    <div class="actions">
+      <button class="btn grow" id="shuffle" type="button">Shuffle plate</button>
+      <button class="btn ghost" id="clear" type="button">Clear</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Build a plate</h2>
+    <p class="hint">Tap a choice to keep it. Shuffle fills the rest with combinations that go together.</p>
+    <div id="plate-rows"></div>
+  </section>
+
+  <section>
+    <h2>Dishes</h2>
+    <p class="hint">Tap a dish to fill the plate. Built a plate you like? Save it as a dish.</p>
+    <div id="dishes"></div>
+    <div class="dishbar">
+      <button class="btn ghost" id="surprise" type="button">Pick one for me</button>
+      <button class="add" type="button" data-add="dish">+ save plate as dish</button>
+    </div>
+    <form class="addform" id="form-dish"><input id="in-dish" type="text" placeholder="Name this plate" aria-label="Name for the saved plate"><button class="btn" type="submit">Save</button></form>
+    <p class="out" id="dish-out" aria-live="polite"></p>
+  </section>
+
+  <section>
+    <h2>Breakfast</h2>
+    <div class="chips" id="row-breakfast"></div>
+    <form class="addform" id="form-breakfast"><input id="in-breakfast" type="text" placeholder="New breakfast" aria-label="New breakfast"><button class="btn" type="submit">Add</button></form>
+  </section>
+
+  <section>
+    <h2>Snacks and sweets</h2>
+    <div class="chips" id="row-snack"></div>
+    <form class="addform" id="form-snack"><input id="in-snack" type="text" placeholder="New snack" aria-label="New snack"><button class="btn" type="submit">Add</button></form>
+  </section>
+
+  <section>
+    <h2>Drinks</h2>
+    <div class="chips" id="row-drink"></div>
+    <form class="addform" id="form-drink"><input id="in-drink" type="text" placeholder="New drink" aria-label="New drink"><button class="btn" type="submit">Add</button></form>
+  </section>
+
+  <section class="todo">
+    <h2>Still to figure out</h2>
+    <ul>
+      <li>A good dressing for steamed broccoli</li>
+      <li>What to cook with tomato passata besides orzotto</li>
+      <li>Brothy rice, reinvented</li>
+    </ul>
+    <p class="note">Items you add or save here stay on this device.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  var DATA = {
+    protein: ['Chicken', 'Salmon', 'White fish', 'Pulled chicken', 'Steak'],
+    base: ['Basmati rice', 'Potatoes', 'Mashed potatoes', 'Gnocchi', 'Pasta: linguine', 'Pasta: caserecce', 'Pasta: orecchiette', 'Black lentils', 'Soba', 'Brothy rice'],
+    veg: ['Eggplant', 'Zucchini fritters', 'Green salad + mozzarella', 'Chopped tomatoes with herbs', 'Steamed broccoli', 'Zucchini in sour cream', 'Carrot with garlic + sour cream', 'Beetroot with garlic', 'Cucumber + radish', 'Arugula', 'Kimchi'],
+    sauce: ['Cream sauce', 'Cream + mushrooms', 'Pesto', 'Cumin', 'Lemon (white fish)', 'Guacamole', 'Fresh herbs', 'Tomatoes in a parcel'],
+    breakfast: ['Cottage cheese + banana + agave', 'Cottage cheese + jam', 'Cottage cheese + maple syrup', 'Ricotta', 'Königer Frischkäse', 'Hazelnut yogurt', 'Coconut yogurt', 'Pastry', 'Paleo muesli with milk & honey', "Kellogg's cereal"],
+    snack: ['Finn Crisp + almette + cucumber', 'Chips + guacamole', 'Chips + sour cream', 'Salt and pepper chips', 'Apple chips', 'Dried mango', 'Dates', 'Gold kiwi', 'Blueberries', 'Red-fleshed apples (aromatic)', 'Frozen pineapple', 'Frozen mango', 'Ice cream (Häagen-Dazs caramel)', 'Toffifee', 'Mon Chéri', 'Mozartkugeln'],
+    drink: ['Chamomile tea + oat milk', 'Ivan-chai (fireweed)', 'Sage tea', 'Thyme tea', 'Apfelschorle']
+  };
+
+  // A dish is a name, plus the plate it fills when you tap it (optional).
+  var DISHES = [
+    { g: 'Pasta and gnocchi', items: [
+      ['Bolognese'],
+      ['Pesto pasta with chicken', { protein: 'Chicken', base: 'Pasta', veg: 'Arugula', sauce: 'Pesto' }],
+      ['Salmon pasta in cream', { protein: 'Salmon', base: 'Pasta', sauce: 'Cream sauce' }],
+      ['Chicken pasta in cream', { protein: 'Chicken', base: 'Pasta', sauce: 'Cream sauce' }],
+      ['Pasta with tuna + tomato sauce'],
+      ['Gnocchi with mushrooms in cream + salmon', { protein: 'Salmon', base: 'Gnocchi', sauce: 'Cream + mushrooms' }]
+    ]},
+    { g: 'Soups and curries', items: [
+      ['Tom yum'],
+      ['Finnish salmon soup', { protein: 'Salmon' }],
+      ['White fish curry', { protein: 'White fish' }]
+    ]},
+    { g: 'Salads and cold plates', items: [
+      ['Tuna + white bean salad (with mayo)'],
+      ['Pulled chicken with celery, mayo + wholegrain mustard', { protein: 'Pulled chicken' }],
+      ['Thai steak salad', { protein: 'Steak' }],
+      ['Larb with chicken', { protein: 'Chicken' }],
+      ['Cold soba (mirin, soy, ice)', { base: 'Soba' }]
+    ]},
+    { g: 'Hot mains', items: [
+      ['Cumin chicken + basmati rice', { protein: 'Chicken', base: 'Basmati rice', sauce: 'Cumin' }],
+      ['Risotto with peas + chicken', { protein: 'Chicken', base: 'Risotto' }],
+      ['Black lentils + rice + white fish', { protein: 'White fish', base: 'Black lentils' }],
+      ['Fish in a paper parcel', { protein: 'White fish', sauce: 'Tomatoes in a parcel' }],
+      ['Chicken cutlets with parsley (Stefano\u2019s favorite)', { protein: 'Chicken', sauce: 'Fresh herbs' }]
+    ]},
+    { g: 'Sandwiches and wraps', items: [
+      ['Ciabatta: mozzarella + mortadella'],
+      ['Croissant: chicken ham'],
+      ['Fajitas: chicken, peppers, guacamole', { protein: 'Chicken', sauce: 'Guacamole' }]
+    ]},
+    { g: 'Quick and simple', items: [
+      ['Zucchini in sour cream + potatoes', { base: 'Potatoes', veg: 'Zucchini in sour cream' }],
+      ['Potatoes + sardines + kimchi', { protein: 'Sardines', base: 'Potatoes', veg: 'Kimchi' }],
+      ['Frozen vareniki with potatoes'],
+      ['Buckwheat with milk']
+    ]}
+  ];
+
+  var PLATE = [['protein', 'Protein', 'Protein'], ['base', 'Base', 'Base'], ['veg', 'Veg', 'Veg'], ['sauce', 'Twist', 'Twist <small>(flavor or topping)</small>']];
+  var PLATE_KEYS = PLATE.map(function (p) { return p[0]; });
+  var KEY = 'myfood.v1';
+
+  var store = { counts: {}, extras: {}, saved: [] };
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      store.counts = parsed.counts || {};
+      store.extras = parsed.extras || {};
+      store.saved = parsed.saved || [];
+    }
+  } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+
+  var plate = { protein: null, base: null, veg: null, sauce: null };
+  var locked = {};
+  var picked = { dish: null, breakfast: null, snack: null, drink: null };
+
+  var dishIndex = {};
+  function indexDishes() {
+    dishIndex = {};
+    DISHES.forEach(function (g) { g.items.forEach(function (it) { dishIndex[it[0]] = it[1] || null; }); });
+    store.saved.forEach(function (s) { dishIndex[s.n] = s.c || null; });
+  }
+  indexDishes();
+
+  function allOf(key) { return DATA[key].concat(store.extras[key] || []); }
+  function bump(key, n) { var k = key + '|' + n; store.counts[k] = (store.counts[k] || 0) + 1; save(); }
+
+  // Order once per visit: most-picked first, then the original order.
+  function ordered(key) {
+    return allOf(key).map(function (n, i) {
+      return { n: n, i: i, c: store.counts[key + '|' + n] || 0, custom: i >= DATA[key].length };
+    }).sort(function (a, b) { return b.c - a.c || a.i - b.i; });
+  }
+
+  function chip(key, n, custom) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (custom ? ' custom' : '');
+    b.dataset.key = key;
+    b.dataset.n = n;
+    b.setAttribute('aria-pressed', 'false');
+    b.textContent = n;
+    if (custom) {
+      var x = document.createElement('span');
+      x.className = 'x';
+      x.textContent = '×';
+      x.setAttribute('aria-label', 'Remove');
+      b.appendChild(x);
+    }
+    return b;
+  }
+
+  function addButton(key) {
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'add';
+    addBtn.dataset.add = key;
+    addBtn.textContent = '+ add';
+    return addBtn;
+  }
+
+  function buildRow(key, holder) {
+    ordered(key).forEach(function (it) { holder.appendChild(chip(key, it.n, it.custom)); });
+  }
+
+  // Plate rows
+  var rowsHost = document.getElementById('plate-rows');
+  PLATE.forEach(function (p) {
+    var key = p[0];
+    var wrap = document.createElement('div');
+    wrap.className = 'row';
+    var lbl = document.createElement('div');
+    lbl.className = 'lbl';
+    lbl.innerHTML = p[2];
+    var chips = document.createElement('div');
+    chips.className = 'chips';
+    chips.id = 'row-' + key;
+    buildRow(key, chips);
+    chips.appendChild(addButton(key));
+    var form = document.createElement('form');
+    form.className = 'addform';
+    form.id = 'form-' + key;
+    form.innerHTML = '<input id="in-' + key + '" type="text" placeholder="New item" aria-label="New ' + p[1] + ' item"><button class="btn" type="submit">Add</button>';
+    wrap.appendChild(lbl); wrap.appendChild(chips); wrap.appendChild(form);
+    rowsHost.appendChild(wrap);
+  });
+  ['breakfast', 'snack', 'drink'].forEach(function (key) {
+    var holder = document.getElementById('row-' + key);
+    buildRow(key, holder);
+    holder.appendChild(addButton(key));
+  });
+
+  // Dishes, grouped by type
+  function addGroup(host, label, names, custom) {
+    var d = document.createElement('div');
+    d.className = 'group';
+    var l = document.createElement('div');
+    l.className = 'lbl';
+    l.textContent = label;
+    var c = document.createElement('div');
+    c.className = 'chips';
+    names.forEach(function (n) { c.appendChild(chip('dish', n, custom)); });
+    d.appendChild(l); d.appendChild(c);
+    host.appendChild(d);
+  }
+  function buildDishes() {
+    var host = document.getElementById('dishes');
+    host.innerHTML = '';
+    DISHES.forEach(function (g) { addGroup(host, g.g, g.items.map(function (i) { return i[0]; }), false); });
+    if (store.saved.length) addGroup(host, 'Saved plates', store.saved.map(function (s) { return s.n; }), true);
+  }
+  buildDishes();
+
+  // Plate cells
+  var cellsHost = document.getElementById('cells');
+  var cellEls = {};
+  PLATE.forEach(function (p) {
+    var c = document.createElement('div');
+    c.className = 'cell';
+    c.innerHTML = '<div class="k"></div><div class="v empty">—</div>';
+    c.querySelector('.k').textContent = p[1];
+    cellsHost.appendChild(c);
+    cellEls[p[0]] = c;
+  });
+
+  function paint() {
+    PLATE_KEYS.forEach(function (k) {
+      var c = cellEls[k], v = c.querySelector('.v');
+      v.textContent = plate[k] || '—';
+      v.className = 'v' + (plate[k] ? '' : ' empty');
+      c.classList.toggle('locked', !!locked[k]);
+    });
+    var chips = document.querySelectorAll('.chip');
+    for (var i = 0; i < chips.length; i++) {
+      var el = chips[i], k = el.dataset.key, n = el.dataset.n;
+      var on = PLATE_KEYS.indexOf(k) > -1 ? plate[k] === n : picked[k] === n;
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    document.getElementById('dish-out').textContent = picked.dish || '';
+  }
+
+  function applyDish(name) {
+    picked.dish = name;
+    var comps = dishIndex[name];
+    if (comps) {
+      PLATE_KEYS.forEach(function (k) {
+        if (comps[k]) { plate[k] = comps[k]; locked[k] = true; }
+        else { plate[k] = null; locked[k] = false; }
+      });
+    }
+  }
+
+  function choose(key, n) {
+    if (key === 'dish') {
+      if (picked.dish === n) { picked.dish = null; }
+      else { applyDish(n); bump('dish', n); }
+    } else if (PLATE_KEYS.indexOf(key) > -1) {
+      picked.dish = null;
+      if (plate[key] === n && locked[key]) { plate[key] = null; locked[key] = false; }
+      else { plate[key] = n; locked[key] = true; bump(key, n); }
+    } else {
+      picked[key] = picked[key] === n ? null : n;
+      if (picked[key]) bump(key, n);
+    }
+    paint();
+  }
+
+  function pick(arr, not) {
+    var pool = arr.filter(function (v) { return v !== not; });
+    var a = pool.length ? pool : arr;
+    return a[Math.floor(Math.random() * a.length)];
+  }
+
+  // Pairings that do not work, from what you told me.
+  function valid(p) {
+    var s = p.sauce, pr = p.protein, b = p.base;
+    if (s === 'Lemon (white fish)' && pr !== 'White fish') return false;
+    if (s === 'Cumin' && !(pr === 'Chicken' && b === 'Basmati rice')) return false;
+    if (s === 'Pesto' && !(b && b.indexOf('Pasta') === 0)) return false;
+    if (s === 'Tomatoes in a parcel' && ['White fish', 'Salmon'].indexOf(pr) < 0) return false;
+    return true;
+  }
+
+  function shuffle() {
+    picked.dish = null;
+    var best = null, last = null;
+    for (var t = 0; t < 120; t++) {
+      var c = {};
+      PLATE_KEYS.forEach(function (k) { c[k] = locked[k] ? plate[k] : pick(allOf(k), plate[k]); });
+      last = c;
+      if (valid(c)) { best = c; break; }
+    }
+    if (!best) {
+      best = last;
+      if (!locked.sauce) best.sauce = null;
+    }
+    PLATE_KEYS.forEach(function (k) { plate[k] = best[k]; });
+    paint();
+  }
+
+  document.addEventListener('click', function (e) {
+    var x = e.target.closest('.x');
+    var c = e.target.closest('.chip');
+    if (x && c) {
+      var key = c.dataset.key, n = c.dataset.n;
+      if (key === 'dish') {
+        store.saved = store.saved.filter(function (s) { return s.n !== n; });
+        delete store.counts['dish|' + n];
+        if (picked.dish === n) picked.dish = null;
+        save(); indexDishes(); buildDishes(); paint();
+        return;
+      }
+      store.extras[key] = (store.extras[key] || []).filter(function (v) { return v !== n; });
+      delete store.counts[key + '|' + n];
+      if (plate[key] === n) { plate[key] = null; locked[key] = false; }
+      if (picked[key] === n) picked[key] = null;
+      save(); c.remove(); paint();
+      return;
+    }
+    if (c) { choose(c.dataset.key, c.dataset.n); return; }
+    var add = e.target.closest('.add');
+    if (add) {
+      var f = document.getElementById('form-' + add.dataset.add);
+      f.classList.toggle('open');
+      if (f.classList.contains('open')) f.querySelector('input').focus();
+    }
+  });
+
+  document.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var form = e.target;
+    var key = form.id.replace('form-', '');
+    var input = form.querySelector('input');
+    var val = input.value.trim();
+    if (key === 'dish') {
+      if (!val || dishIndex.hasOwnProperty(val)) { input.value = ''; return; }
+      var comps = {};
+      PLATE_KEYS.forEach(function (k) { if (plate[k]) comps[k] = plate[k]; });
+      store.saved.push({ n: val, c: comps });
+      save(); indexDishes(); buildDishes();
+      picked.dish = val;
+      input.value = '';
+      form.classList.remove('open');
+      paint();
+      return;
+    }
+    if (!val || allOf(key).indexOf(val) > -1) { input.value = ''; return; }
+    store.extras[key] = (store.extras[key] || []).concat([val]);
+    save();
+    var holder = document.getElementById('row-' + key);
+    var addBtn = holder.querySelector('.add');
+    var el = chip(key, val, true);
+    if (addBtn) holder.insertBefore(el, addBtn); else holder.appendChild(el);
+    input.value = '';
+    form.classList.remove('open');
+    paint();
+  });
+
+  document.getElementById('shuffle').addEventListener('click', shuffle);
+  document.getElementById('clear').addEventListener('click', function () {
+    PLATE_KEYS.forEach(function (k) { plate[k] = null; locked[k] = false; });
+    picked.dish = null;
+    paint();
+  });
+  document.getElementById('surprise').addEventListener('click', function () {
+    applyDish(pick(Object.keys(dishIndex), picked.dish));
+    paint();
+  });
+
+  // Open with a sample plate so the first view shows what the page does.
+  shuffle();
+})();
+</script>
+
+</body>
+</html>
